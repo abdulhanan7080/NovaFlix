@@ -1,0 +1,112 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+    
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"; 
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) && 
+             data.keys().size() == 3 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['user', 'admin'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidWatchlist(data, uid) {
+      return data.keys().hasAll(['userId', 'tmdbId', 'mediaType', 'addedAt']) && 
+             data.keys().size() == 4 &&
+             data.userId == uid &&
+             data.tmdbId is number &&
+             data.mediaType in ['movie', 'tv'] &&
+             data.addedAt is timestamp;
+    }
+
+    function isValidHistory(data, uid) {
+      return data.keys().hasAll(['userId', 'tmdbId', 'mediaType', 'progress', 'updatedAt']) && 
+             data.keys().size() == 5 &&
+             data.userId == uid &&
+             data.tmdbId is number &&
+             data.mediaType in ['movie', 'tv'] &&
+             data.progress is number &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidMediaLink(data) {
+      return data.keys().hasAll(['mediaType', 'updatedAt']) && 
+             data.mediaType in ['movie', 'tv'] &&
+             data.updatedAt is timestamp &&
+             ( !('tmdbId' in data) || data.tmdbId is string ) &&
+             ( !('downloads' in data) || data.downloads is list && data.downloads.size() <= 20 ) &&
+             ( !('streams' in data) || data.streams is list && data.streams.size() <= 20 );
+    }
+
+    // --- Collections ---
+    
+    // Users
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidId(userId) &&
+                       isValidUser(incoming()) && incoming().role == 'user' && 
+                       incoming().createdAt == request.time;
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email']) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().role == existing().role;
+      
+      // Admin overrides
+      allow update: if isAdmin() && isValidUser(incoming()) && 
+                       incoming().createdAt == existing().createdAt;
+      
+      match /watchlist/{tmdbId} {
+        allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && resource.data.userId == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId && isValidId(tmdbId) &&
+                         isValidWatchlist(incoming(), userId) &&
+                         incoming().addedAt == request.time &&
+                         exists(/databases/$(database)/documents/users/$(userId));
+        allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      }
+      
+      match /history/{tmdbId} {
+        allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && resource.data.userId == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId && isValidId(tmdbId) &&
+                         isValidHistory(incoming(), userId) &&
+                         incoming().updatedAt == request.time &&
+                         exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isSignedIn() && request.auth.uid == userId && 
+                         isValidHistory(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['progress', 'updatedAt']) &&
+                         incoming().updatedAt == request.time &&
+                         incoming().tmdbId == existing().tmdbId &&
+                         incoming().mediaType == existing().mediaType;
+        allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      }
+    }
+
+    // Media Links
+    match /media/{tmdbId} {
+      allow get, list: if isSignedIn();
+      allow create: if isAdmin() && isValidId(tmdbId) && isValidMediaLink(incoming()) &&
+                       incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidMediaLink(incoming()) &&
+                       incoming().updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+  }
+}

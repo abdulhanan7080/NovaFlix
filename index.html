@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NovaFlix | Premium Movies</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-950 text-white font-sans antialiased selection:bg-indigo-500/30">
+    <div id="root"></div>
+    <script>
+      // Workaround for libraries attempting to overwrite window.fetch in environments where it has only a getter
+      try {
+        const desc = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+        if (desc && !desc.set) {
+          Object.defineProperty(window, 'fetch', {
+            get: desc.get || (() => fetch),
+            set: function(val) { console.warn('Ignored attempt to overwrite window.fetch'); },
+            configurable: true,
+            enumerable: true
+          });
+        }
+        
+        const globalDesc = Object.getOwnPropertyDescriptor(globalThis, 'fetch') || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(globalThis), 'fetch');
+        if (globalDesc && !globalDesc.set && globalThis !== window) {
+           Object.defineProperty(globalThis, 'fetch', {
+            get: globalDesc.get || (() => fetch),
+            set: function(val) { console.warn('Ignored attempt to overwrite globalThis.fetch'); },
+            configurable: true,
+            enumerable: true
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

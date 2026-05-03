@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role management",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "WatchlistItem": {
+      "title": "Watchlist Item",
+      "description": "An item saved to a user's watchlist",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "tmdbId": { "type": "number" },
+        "mediaType": { "type": "string", "enum": ["movie", "tv"] },
+        "addedAt": { "type": "number" }
+      },
+      "required": ["userId", "tmdbId", "mediaType", "addedAt"]
+    },
+    "HistoryItem": {
+      "title": "History Item",
+      "description": "An item the user has watched",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "tmdbId": { "type": "number" },
+        "mediaType": { "type": "string", "enum": ["movie", "tv"] },
+        "progress": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "tmdbId", "mediaType", "progress", "updatedAt"]
+    },
+    "MediaLink": {
+      "title": "Media Link",
+      "description": "Download and streaming links for a TMDB item",
+      "type": "object",
+      "properties": {
+        "tmdbId": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["movie", "tv"] },
+        "downloads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "quality": { "type": "string" },
+              "server": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        },
+        "streams": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "server": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["mediaType", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "users/{userId}/watchlist/{tmdbId}": {
+      "schema": { "$ref": "#/entities/WatchlistItem" },
+      "description": "Watchlist items for the user"
+    },
+    "users/{userId}/history/{tmdbId}": {
+      "schema": { "$ref": "#/entities/HistoryItem" },
+      "description": "Watch history for the user"
+    },
+    "media/{tmdbId}": {
+      "schema": { "$ref": "#/entities/MediaLink" },
+      "description": "Links attached to a specific TMDB movie or TV show"
+    }
+  }
+}

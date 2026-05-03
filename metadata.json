@@ -1,0 +1,6 @@
+{
+  "name": "NovaFlix",
+  "description": "A modern Netflix-style movie platform with premium dark UI and TMDb integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
